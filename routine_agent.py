@@ -50,7 +50,6 @@ if not all([deepseek_api_key, telegram_bot_token, telegram_chatid]):
 deepseek = OpenAI(base_url=deepseek_base_url, api_key=deepseek_api_key)
 
 def telegram(message):
-    print("Telegram: ", message)
     url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
 
     payload = {"chat_id": telegram_chatid, "text": message, "parse_mode": "Markdown"} # Allows the AI to use *bold* and _italic_
@@ -126,9 +125,14 @@ file_path = BASE_DIR / "data" / "daily_routine.xlsx"
 # 2. Get the file modification time (timestamp)
 m_time = file_path.stat().st_mtime
 
+# 1. Define the explicit India Standard Time timezone
+ist_timezone = pytz.timezone('Asia/Kolkata')
+
 routine_df = pd.read_excel(file_path)
 routine_str = routine_df.to_json(orient="records", indent=1)
-status_update_date = datetime.fromtimestamp(m_time).strftime("%d-%m-%Y %H:%M:%S")
+status_update_dt = datetime.fromtimestamp(m_time, tz=pytz.utc).astimezone(ist_timezone)
+# 3. Format it cleanly into your string variable
+status_update_date = status_update_dt.strftime("%d-%m-%Y %H:%M:%S")
 print(status_update_date)
 
 system_prompt = f"""
