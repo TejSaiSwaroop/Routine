@@ -98,10 +98,13 @@ def handle_tool_calls(tool_calls):
         results.append({"role": "tool","content": json.dumps(result),"tool_call_id": tool_call.id})
     return results
 
-# 1. Define the file path
-file_path = Path(r"C:\Users\Sai Swaroop\Desktop\Innvt\APPS\Routine\data\daily_routine.xlsx")
+# root folder where your routine_agent.py is located
+BASE_DIR = Path(__file__).resolve().parent
 
-# 2. Get the modification time (timestamp)
+# file relative to project folder structure
+file_path = BASE_DIR / "data" / "daily_routine.xlsx"
+
+# 2. Get the file modification time (timestamp)
 m_time = file_path.stat().st_mtime
 
 routine_df = pd.read_excel(file_path)
