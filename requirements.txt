@@ -1,0 +1,9 @@
+requests
+python-dotenv
+gradio
+pypdf
+openai
+openai-agents
+pandas
+numpy
+datetime
