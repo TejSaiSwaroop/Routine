@@ -7,13 +7,17 @@ on:
     branches: [ "main" ]
   schedule:
     # 1. Morning Check (7:15 AM IST / 1:45 AM UTC)
-    - cron: '45 1 * * *'
+    - cron: '48 1 * * *'
     
     # 2. Afternoon Check (12:45 PM IST / 7:15 AM UTC)
-    - cron: '15 7 * * *'
+    - cron: '19 7 * * *'
     
     # 3. Nightly Lockdown (11:20 PM IST / 5:50 PM UTC)
-    - cron: '50 17 * * *'
+    - cron: '49 17 * * *'
+
+    # 4. 
+    - cron: '07 10 * * *'
+
   workflow_dispatch:
 
 # # THE FIX: This forces all JavaScript actions to use Node 24 right now
