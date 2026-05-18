@@ -13,6 +13,14 @@ import pytz
 # load the environment variables
 load_dotenv
 
+deepseek_base_url = "https://api.deepseek.com/v1"
+deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+deepseek_model = "deepseek-chat"
+
+# for Telegram
+telegram_bot_token = os.getenv("TELEGRAM_TOKEN")
+telegram_chatid = os.getenv("TELEGRAM_CHATID")
+
 # 1. Get the current time explicitly in India Standard Time (IST)
 ist = pytz.timezone('Asia/Kolkata')
 now_ist = datetime.now(ist)
@@ -30,14 +38,6 @@ else:  # Around 11:20 PM (or manual triggers)
     current_window = "NIGHT_LOCKDOWN"
     target_date_label = "Today (Full Day)"
 
-deepseek_base_url = "https://api.deepseek.com/v1"
-deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
-deepseek_model = "deepseek-chat"
-
-# for Telegram
-telegram_bot_token = os.getenv("TELEGRAM_TOKEN")
-telegram_chatid = os.getenv("TELEGRAM_CHATID")
-
 # Safety Check: Stop early if keys are missing
 if not all([deepseek_api_key, telegram_bot_token, telegram_chatid]):
     print("❌ Critical Error: Missing required environment variables.")
@@ -49,13 +49,17 @@ deepseek = OpenAI(base_url=deepseek_base_url, api_key=deepseek_api_key)
 def telegram(message):
     url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
 
-    payload = {"chat_id": telegram_chatid, "text": message, "parse_mode": "Markdown"} # Allows the AI to use *bold* and _italic_
+    # Using MarkdownV2 or HTML is much more stable for multi-agent variables
+    payload = {"chat_id": telegram_chatid, "text": message, "parse_mode": "Markdown"}
 
     try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status() # Check for errors
+        # Always use json= payload for streaming LLM text to avoid form-encoding corruption
+        response = requests.post(url, json=payload)
+        response.raise_for_status() 
         return {"status": "Success", "platform": "Telegram"}
     except Exception as e:
+        if 'response' in locals() and response is not None:
+            return {"status": "Error", "message": f"Telegram Rejected Payload: {response.text}"}
         return {"status": "Error", "message": str(e)}
 
 def task_status(task_comment,Overall_feedback): # completed_tasks, pending_tasks
@@ -75,6 +79,7 @@ task_status_json = {
             "task_comment": {
                 "type": "string",
                 "description": (
+                    "It should be Telegram compatible as mentioned in the prompt (MANDATORY)"
                     "Highly structured suggestions for specific tasks. "
                     "start it with 'Discipline Drill or something similar with positive emoji."
                     "Use Telegram-compatible Markdown: *bold* for headers, emojis for bullet points (e.g., 🔴, 🟢, ⚡), but no * or other simple special charecters in texts. make sure good emojis are there as it makes it look good."
@@ -86,6 +91,7 @@ task_status_json = {
             "Overall_feedback": {
                 "type": "string",
                 "description": (
+                    "It should be Telegram compatible as mentioned in the prompt (MANDATORY)"
                     "The final motivational push and routine optimization. "
                     "Use a clear header like '--- 🚀 ROUTINE BOOSTER ---', "
                     "include bold text for emphasis, and use emojis to make the message optimistic. "
@@ -213,28 +219,40 @@ response = deepseek.chat.completions.create(model="deepseek-v4-pro", messages=me
 # Save the response text
 draft_feedback = response.choices[0].message.content
 
+
 reviewer_prompt = f"""
 ### ROLE
 You are the world's premier High-Performance Communications Editor. Your mission is to take the raw feedback draft from Agent 1 and refine it into an elite, highly impactful mobile notification engineered for relentless execution.
 
 ### YOUR OBJECTIVE
 1. **Eliminate All AI Fluff:** Ruthlessly delete any conversational preambles, introductory filler, or "AI-speak" (e.g., remove "Here is your feedback," "Based on your data," or "Let's look at yesterday"). Start directly with the core data/insights.
-2. **Aggressive Mobile Scannability:** Ensure there is a clean double-line break (`\n\n`) between every single task, section, and block. The final text must look incredibly spacious, organized and clean on a mobile screen (Telegram).
+2. **Aggressive Mobile Scannability:** Ensure there is a clean double-line break (`\\n\\n`) between every single task, section, and block. The final text must look incredibly spacious, organized and clean on a mobile screen (Telegram).
 3. **Mandatory Emoji Anchoring:** Ensure a relevant, professional and high-energy emoji (e.g., 🚀, ⏳, ⚡, 🎯, 🟢, 🔴) is placed at the start of every key section, metric and task line to guide the eye instantly. If Agent 1's draft lacks them, inject them.
 4. **Tool Authorization:** You are the final gatekeeper. Once the message text is polished, you must invoke the `task_status` tool to transmit the payload.
 5. **Language Enforcer:** The entire output must be delivered strictly in English.
 
 ### THE DUAL-TONE DISCIPLINE BLUEPRINT
 You must strictly enforce a dual-tone strategy based on the content of the draft:
-*   **The Discipline Warning (Stale/Missing Data):** If the data was not updated and the "bad example" warning is triggered, enforce a **stern, uncompromising, and hard-hitting tone**. Keep the exact phrase *"You are setting a bad example for your career, your potential and your own system."* Do not soften this blow. Frame it as: *No excuses for slipping, but absolute, unshakeable belief that you will restore order immediately.*
-*   **Tactical & Routine Guidance (Active Tasks):** For all task strategies, tracking logs and active reviews, ensure the tone is **highly positive, driving, optimistic, and powerful**. Inject fierce, active athletic corner-coach energy into the words.
+* **The Discipline Warning (Stale/Missing Data):** If the data was not updated and the "bad example" warning is triggered, enforce a **stern, uncompromising, and hard-hitting tone**. Keep the exact phrase *"You are setting a bad example for your career, your potential and your own system."* Do not soften this blow. Frame it as: *No excuses for slipping, but absolute, unshakeable belief that you will restore order immediately.*
+* **Tactical & Routine Guidance (Active Tasks):** For all task strategies, tracking logs and active reviews, ensure the tone is **highly positive, driving, optimistic, and powerful**. Inject fierce, active athletic corner-coach energy into the words.
 
-### PARAMETER VALIDATION
-*   **Temporal Integrity Audit:** Audit Agent 1's output to ensure it correctly processed the temporal alignment between the data timestamp and runtime (Routine Datetime: {status_update_date} IST | Current Run Time: {current_time_str} IST). Verify that Agent 1 accurately applied the active evaluation window logic and did not hallucinate or mismatch the timeline facts. If Agent 1 miscalculated the timing or applied the wrong window logic, correct the text to reflect the true temporal reality before sending.
-*   **Null Rule Respect:** If Agent 1 set `task_comment` to `NULL` due to a tracking breach, you **MUST** respect that structure. Do not invent task-specific feedback. Map the payload correctly.
+### PARAMETER & TIME VALIDATION
+* **Temporal Integrity Audit:** Audit Agent 1's output to ensure it correctly processed the temporal alignment between the data timestamp and runtime (Routine Datetime: {status_update_date} IST | Current Run Time: {current_time_str} IST). Verify that Agent 1 accurately applied the active evaluation window logic and did not hallucinate or mismatch the timeline facts. If Agent 1 miscalculated the timing or applied the wrong window logic, correct the text to reflect the true temporal reality before sending.
+* **Null Rule Respect:** If Agent 1 set `task_comment` to `NULL` due to a tracking breach, you **MUST** respect that structure. Do not invent task-specific feedback. Map the payload correctly.
+
+---
+
+### ⚠️ CRITICAL PARSING GUARDRAIL (TELEGRAM COMPLIANCE)
+You are outputting text variables that will map directly to a live Telegram Markdown endpoint. Broken markdown syntax will cause the API to drop the entire transmission. You must strictly execute this formatting sanitization:
+1. **Perfect Bold Enclosure:** Every opening bold tag `**` MUST have a matching, explicit closing bold tag `**`. 
+2. **No Stray Syntactical Symbols:** Do NOT output isolated or stray asterisks (`*`) or underscores (`_`) anywhere in the `task_comment` or `Overall_feedback` strings unless they are verified parts of a perfectly closed, valid markdown structural element.
+3. **Fail-Safe Mode:** If you detect that a complex piece of text or task layout risks creating unclosed or unsafe markdown formatting, **drop all markdown symbols entirely** and fallback to clear, beautifully spaced plain text utilizing clean line breaks and emojis to maintain structure.
+
+Payload Size Guardrail: Telegram strictly caps messages at 4,096 characters. You must compress Agent 1's draft, deleting repetitive phrasing or wordy paragraphs. Ensure the final combined characters of task_comment and Overall_feedback never exceeds 3,000 characters to leave a safe buffer for transmission headers.
+---
 
 ### TOOL USAGE
-When the message is perfectly polished, execute the tool call:
+When the message text is flawlessly polished, structured, and certified safe against markdown compilation errors, execute the tool call:
 `task_status(task_comment, Overall_feedback)`
 
 **Mapping Constraint:** Ensure the refined text blocks are mapped cleanly to the correct parameters without losing the deep line breaks and structural emojis.
@@ -252,8 +270,7 @@ reviewer_messages = [
     {"role": "user", "content": f"DRAFT TO REVIEW AND SEND: \n\n{draft_feedback}"},
     
     # Final command to trigger the tool
-    {"role": "user", "content": "Review the draft against the original instructions. If it passes, call the 'task_status' tool with the refined, formatted content."}
-]
+    {"role": "user", "content": "Review the draft against the original instructions. If it passes, call the 'task_status' tool with the refined, formatted content."}]
 
 reviewer_response = deepseek.chat.completions.create(model="deepseek-v4-flash", messages=reviewer_messages, tools=tools) # deepseek-v4-pro
 
