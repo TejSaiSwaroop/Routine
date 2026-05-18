@@ -111,6 +111,7 @@ def handle_tool_calls(tool_calls):
         tool = globals().get(tool_name) 
         result = tool(**arguments) if tool else {}
         results.append({"role": "tool","content": json.dumps(result),"tool_call_id": tool_call.id})
+        print(results)
     return results
 
 # root folder where your routine_agent.py is located
@@ -211,29 +212,6 @@ response = deepseek.chat.completions.create(model="deepseek-v4-pro", messages=me
 
 # Save the response text
 draft_feedback = response.choices[0].message.content
-
-reviewer_prompt = f"""
-### ROLE
-You are a High-Performance Communications Editor. Your job is to take the draft feedback provided and refine it into a world-class mobile notification. 
-
-### YOUR OBJECTIVE
-1. **Remove unnecesasry words:** Delete any "AI-speak" (e.g., "Here is your feedback" or "Based on your data").
-2. **Emoji Injection:** Add relevant, professional and motivating emojis (e.g., 🚀, ⏳, ⚖️, 🎯) at the start of key sections to make the message visually engaging on Telegram if they are already not present in each section in the response. This is mandatory.
-3. **Tone Check:** Ensure the tone is highly positive, optimistic and powerful. If the draft feels "dry" inject energy into the words.
-4. **Final Tool Execution:** Once the message is polished, you are the only agent authorized to call the `task_status` tool.
-5. **Language:** language should be in English. This is mandatory. Check that as well and update if response is in any other language.
-
-### VALIDATION RULES
-- **Check Stale Warnings:** Ensure the warning about being a "bad example" is present if the status was not updated, but make it sound strong/hard and optimistic.
-- **Date and Time validations:** Ensure if the routine datetime - {status_update_date} IST is correctly validated against the current run time - {current_time_str} IST
-- **Check spaces/emiojis:** Check if there is good line space between each item ( add line spaces for each item to make it look good ) and whether there are emojis whereever it makes it look engaging, motivating and positive and add emojis. 
-
-### TOOL USAGE
-When you have the perfect message, call:
-`task_status(task_comment, Overall_feedback)`
-
-**Important:** Map the refined text to the correct parameters. If the first agent set `task_comment` to null due to stale data, respect that.
-"""
 
 reviewer_prompt = f"""
 ### ROLE
